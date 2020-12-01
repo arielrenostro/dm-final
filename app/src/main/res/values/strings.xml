@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Car Monitor - Final</string>
+    <string name="non_selected_device">Não selecionado</string>
+    <string name="device">Dispositivo</string>
+    <string name="select">Selecionar</string>
+    <string name="map_view">Map View</string>
+    <string name="fuel_level">Combustível: </string>
+    <string name="rpm">RPM: </string>
+    <string name="speed">Velocidade: </string>
+</resources>
