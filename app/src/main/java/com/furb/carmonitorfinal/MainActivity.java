@@ -39,11 +39,15 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
     private final static int REQUEST_ENABLE_BT = 1;
     private final static UUID MY_UUID = UUID.randomUUID();
 
+    private final static float MIN_FUEL_ALERT = 15.0f;
+
     private final BroadcastReceiver receiver = new Receiver();
     private final BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
     private OBD2Service obd2Service;
     private Dialog loaderDialog;
+
+    private boolean notified = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,6 +104,10 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
     public void onFuelLevel(float fuelLevel) {
         TextView txtFuelLevel = findViewById(R.id.txtFuelLevel);
         txtFuelLevel.setText(fuelLevel + "%");
+
+        if (!this.notified && MIN_FUEL_ALERT > fuelLevel) {
+            // TODO ARIEL
+        }
     }
 
     private void openDialog(Set<BluetoothDevice> bondedDevices) {
