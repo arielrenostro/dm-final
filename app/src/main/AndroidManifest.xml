@@ -15,6 +15,28 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+
+        <receiver android:name=".services.MessageReadReceiver">
+            <intent-filter>
+                <action android:name="com.furb.carmonitorfinal.ACTION_MESSAGE_READ" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".services.MessageReplyReceiver">
+            <intent-filter>
+                <action android:name="com.furb.carmonitorfinal.ACTION_MESSAGE_REPLY" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".services.FuelNotificationService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

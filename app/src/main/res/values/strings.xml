@@ -7,4 +7,7 @@
     <string name="fuel_level">Combustível: </string>
     <string name="rpm">RPM: </string>
     <string name="speed">Velocidade: </string>
+
+    <string name="channel_name">canalbolado</string>
+    <string name="channel_description">Canal bolado</string>
 </resources>

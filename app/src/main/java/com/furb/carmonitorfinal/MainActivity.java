@@ -5,10 +5,16 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -23,9 +29,11 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.furb.carmonitorfinal.listeners.IOBD2Listener;
+import com.furb.carmonitorfinal.services.FuelNotificationService;
 import com.furb.carmonitorfinal.services.OBD2Service;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
     private OBD2Service obd2Service;
     private Dialog loaderDialog;
 
+    private Messenger mMessenger;
     private boolean notified = false;
 
     @Override
@@ -57,6 +66,9 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
 //        // Receiver
 //        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
 //        registerReceiver(this.receiver, filter);
+
+        // BindServices
+        bindMessageService();
 
         // Events
         findViewById(R.id.btSelectDevice).setOnClickListener(this::onClickSelectDevice);
@@ -102,11 +114,24 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
 
     @Override
     public void onFuelLevel(float fuelLevel) {
+        String fuelLevelText = fuelLevel + "%";
+
         TextView txtFuelLevel = findViewById(R.id.txtFuelLevel);
-        txtFuelLevel.setText(fuelLevel + "%");
+        txtFuelLevel.setText(fuelLevelText);
 
         if (!this.notified && MIN_FUEL_ALERT > fuelLevel) {
-            // TODO ARIEL
+            this.notified = true;
+
+            Message message = Message.obtain();
+            Bundle bundle = new Bundle();
+            bundle.putString("message", "Seu tanque está ficando vazio! Deseja procurar o posto mais próximo?");
+            bundle.putString("participant", "Tanque abaixo de " + fuelLevelText + "%");
+            message.setData(bundle);
+            try {
+                this.mMessenger.send(message);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -166,7 +191,12 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
         return map;
     }
 
-    public void showLoader() {
+    private void bindMessageService() {
+        IConnectionHandler connectionHandler = (context, name, service) -> context.mMessenger = new Messenger(service);
+        bindService(new Intent(this, FuelNotificationService.class), new Connection(this, connectionHandler), BIND_AUTO_CREATE);
+    }
+
+    private void showLoader() {
         this.loaderDialog = new Dialog(this);
         this.loaderDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         this.loaderDialog.setCancelable(false);
@@ -176,7 +206,7 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
         this.loaderDialog.show();
     }
 
-    public void hideLoader() {
+    private void hideLoader() {
         this.loaderDialog.dismiss();
     }
 
@@ -185,6 +215,44 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+        }
+    }
+
+    public static class Connection implements ServiceConnection {
+
+        IConnectionHandler connectionHandler;
+        WeakReference<Context> contextReference;
+
+        public Connection(Context context, IConnectionHandler connectionHandler) {
+            this.contextReference = new WeakReference<>(context);
+            this.connectionHandler = connectionHandler;
+        }
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Context context = this.contextReference.get();
+            if (context != null) {
+                MainActivity mainActivity = (MainActivity) context;
+                this.connectionHandler.onConnected(mainActivity, name, service);
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Context context = contextReference.get();
+            if (context != null) {
+                MainActivity mainActivity = (MainActivity) context;
+                this.connectionHandler.onDisconnected(mainActivity, name);
+            }
+        }
+    }
+
+    private interface IConnectionHandler {
+
+        void onConnected(MainActivity context, ComponentName name, IBinder service);
+
+        default void onDisconnected(MainActivity context, ComponentName name) {
+
         }
     }
 }
