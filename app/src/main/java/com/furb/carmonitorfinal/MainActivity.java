@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Build;
 import android.os.Bundle;
@@ -64,9 +65,10 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-//        // Receiver
-//        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-//        registerReceiver(this.receiver, filter);
+        // Receiver
+        registerReceiver(this.receiver, new IntentFilter("com.furb.carmonitorfinal.RPM"));
+        registerReceiver(this.receiver, new IntentFilter("com.furb.carmonitorfinal.SPEED"));
+        registerReceiver(this.receiver, new IntentFilter("com.furb.carmonitorfinal.FUEL_LEVEL"));
 
         // BindServices
         bindMessageService();
@@ -196,13 +198,22 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
             }
         } finally {
             if (bluetoothSocket != null) {
+
+                final BluetoothSocket socket = bluetoothSocket;
                 try {
-                    this.obd2Service = new OBD2Service(bluetoothSocket, bluetoothDevice, this);
-                    new Thread(() -> runOnUiThread(this.obd2Service)).start();
+                    IConnectionHandler connectionHandler = (context, name, service) -> {
+                        try {
+                            OBD2Service.MyBinder binder = (OBD2Service.MyBinder) service;
+                            context.obd2Service = binder.getService();
+                            context.obd2Service.register(socket, bluetoothDevice);
+                        } catch (Exception e) {
+                            Toast.makeText(this, "ERRO AO CONECTAR: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        }
 
-                    EditText txtDevice = findViewById(R.id.txtDevice);
-                    txtDevice.setText(deviceName);
-
+                        EditText txtDevice = findViewById(R.id.txtDevice);
+                        txtDevice.setText(deviceName);
+                    };
+                    bindService(new Intent(this, OBD2Service.class), new Connection(this, connectionHandler), BIND_AUTO_CREATE);
                 } catch (Exception e) {
                     e.printStackTrace();
                     Toast.makeText(this, "ERRO AO CONECTAR: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -246,6 +257,19 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
+
+            if ("com.furb.carmonitorfinal.RPM".equals(action)) {
+                int rpm = intent.getIntExtra("rpm", 0);
+                onRPM(rpm);
+
+            } else if ("com.furb.carmonitorfinal.SPEED".equals(action)) {
+                int speed = intent.getIntExtra("speed", 0);
+                onSpeed(speed);
+
+            } else if ("com.furb.carmonitorfinal.FUEL_LEVEL".equals(action)) {
+                float fuelLevel = intent.getFloatExtra("level", 0.0f);
+                onFuelLevel(fuelLevel);
+            }
         }
     }
 

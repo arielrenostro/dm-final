@@ -32,6 +32,7 @@
             android:name=".services.FuelNotificationService"
             android:enabled="true"
             android:exported="false" />
+        <service android:name=".services.OBD2Service" />
 
         <meta-data
             android:name="com.google.android.gms.car.application"
