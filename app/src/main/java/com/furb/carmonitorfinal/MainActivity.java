@@ -34,6 +34,7 @@ import com.furb.carmonitorfinal.services.OBD2Service;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -109,7 +110,7 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
     @Override
     public void onRPM(int rpm) {
         TextView txtRPM = findViewById(R.id.txtRPM);
-        txtRPM.setText(rpm);
+        txtRPM.setText(String.valueOf(rpm));
     }
 
     @Override
@@ -133,6 +134,12 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
                 e.printStackTrace();
             }
         }
+    }
+
+    @Override
+    public void onSpeed(int speed) {
+        TextView txtSpeed = findViewById(R.id.txtSpeed);
+        txtSpeed.setText(speed + "km/h");
     }
 
     private void openDialog(Set<BluetoothDevice> bondedDevices) {
@@ -164,19 +171,43 @@ public class MainActivity extends AppCompatActivity implements IOBD2Listener {
 
     private void connectToDevice(String deviceName, BluetoothDevice bluetoothDevice) {
         showLoader();
+        BluetoothSocket bluetoothSocket = null;
         try {
-            BluetoothSocket bluetoothSocket = bluetoothDevice.createRfcommSocketToServiceRecord(MY_UUID);
+            bluetoothSocket = bluetoothDevice.createRfcommSocketToServiceRecord(MY_UUID);
             bluetoothSocket.connect();
             Toast.makeText(this, "Conectado: " + deviceName, Toast.LENGTH_LONG).show();
 
-            EditText txtDevice = findViewById(R.id.txtDevice);
-            txtDevice.setText(deviceName);
-
-            this.obd2Service = new OBD2Service(bluetoothSocket, bluetoothDevice, this);
         } catch (IOException e) {
             e.printStackTrace();
-            Toast.makeText(this, "ERRO AO CONECTAR: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Class<?> clazz = bluetoothSocket.getRemoteDevice().getClass();
+            Class<?>[] paramTypes = new Class<?>[]{Integer.TYPE};
+            try {
+                Method m = clazz.getMethod("createRfcommSocket", paramTypes);
+                Object[] params = new Object[]{1};
+
+                bluetoothSocket = (BluetoothSocket) m.invoke(bluetoothDevice, params);
+                bluetoothSocket.connect();
+
+                Toast.makeText(this, "Conectado: " + deviceName, Toast.LENGTH_LONG).show();
+
+            } catch (Exception e2) {
+                Toast.makeText(this, "ERRO AO CONECTAR: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                bluetoothSocket = null;
+            }
         } finally {
+            if (bluetoothSocket != null) {
+                try {
+                    this.obd2Service = new OBD2Service(bluetoothSocket, bluetoothDevice, this);
+                    new Thread(() -> runOnUiThread(this.obd2Service)).start();
+
+                    EditText txtDevice = findViewById(R.id.txtDevice);
+                    txtDevice.setText(deviceName);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Toast.makeText(this, "ERRO AO CONECTAR: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            }
             hideLoader();
         }
     }

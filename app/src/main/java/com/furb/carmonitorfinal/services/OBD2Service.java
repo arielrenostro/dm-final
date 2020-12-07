@@ -7,29 +7,28 @@ import android.widget.Toast;
 
 import com.furb.carmonitorfinal.listeners.IOBD2Listener;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class OBD2Service {
+public class OBD2Service implements Runnable {
 
     private static final byte[] CMD_NEW_LINE = "\r".getBytes();
 
     private static final byte[] CMD_RESET = "AT Z".getBytes();
-    private static final long CMD_RESET_DELAY = 100;
+    private static final long CMD_RESET_DELAY = 500;
 
     private static final byte[] CMD_RPM = "01 0C".getBytes();
-    private static final long CMD_RPM_DELAY = 100;
+    private static final long CMD_RPM_DELAY = 500;
 
     private static final byte[] CMD_FUEL_LEVEL = "01 2F".getBytes();
-    private static final long CMD_FUEL_LEVEL_DELAY = 100;
+    private static final long CMD_FUEL_LEVEL_DELAY = 500;
+
+    private static final byte[] CMD_SPEED = "01 0D".getBytes();
+    private static final long CMD_SPEED_DELAY = 500;
 
     private static final long LOOP_DELAY = 1000;
-
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final BluetoothSocket socket;
     private final BluetoothDevice device;
@@ -47,7 +46,6 @@ public class OBD2Service {
         this.os = socket.getOutputStream();
 
         this.start();
-        this.executor.submit(this::loop);
     }
 
     private void start() throws IOException {
@@ -55,7 +53,8 @@ public class OBD2Service {
         Toast.makeText((Context) this.listener, "Reset: " + new String(resetResponse), Toast.LENGTH_LONG).show();
     }
 
-    private void loop() {
+    @Override
+    public void run() {
         long start;
 
         while (true) {
@@ -68,6 +67,9 @@ public class OBD2Service {
                 byte[] fuelLevel = send(CMD_FUEL_LEVEL, CMD_FUEL_LEVEL_DELAY);
                 // ignore first two bytes [hh hh] of the response
                 this.listener.onFuelLevel(100.0f * fuelLevel[2] / 255.0f);
+
+                byte[] speed = send(CMD_SPEED, CMD_SPEED_DELAY);
+                this.listener.onSpeed(speed[2]);
 
                 delay(LOOP_DELAY - (System.currentTimeMillis() - start));
             } catch (Exception e) {
@@ -83,7 +85,7 @@ public class OBD2Service {
 
         delay(delay);
 
-        ByteBuffer buffer = ByteBuffer.allocate(this.is.available());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(this.is.available());
         byte b;
         char c;
         while (((b = (byte) this.is.read()) > -1)) {
@@ -91,9 +93,9 @@ public class OBD2Service {
             if (c == '>') {
                 break;
             }
-            buffer.put(b);
+            baos.write(b);
         }
-        return buffer.array();
+        return baos.toByteArray();
     }
 
     private void delay(long delay) {

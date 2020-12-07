@@ -6,4 +6,5 @@ public interface IOBD2Listener {
 
     void onFuelLevel(float fuelLevel);
 
+    void onSpeed(int speed);
 }
