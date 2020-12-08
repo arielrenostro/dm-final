@@ -20,11 +20,13 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -39,6 +41,9 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.IconCompat;
 
 import com.furb.carmonitorfinal.R;
+import com.google.android.libraries.car.app.notification.CarAppExtender;
+
+import static com.google.android.libraries.car.app.CarContext.ACTION_NAVIGATE;
 
 public class FuelNotificationService extends Service {
 
@@ -130,7 +135,19 @@ public class FuelNotificationService extends Service {
                 .setStyle(messagingStyle)
 
                 .addAction(action)
-                .addInvisibleAction(markAsReadAction);
+                .addInvisibleAction(markAsReadAction)
+
+                .extend(
+                        CarAppExtender.builder()
+                                .setContentIntent(
+                                        PendingIntent.getBroadcast(
+                                                this.getApplicationContext(),
+                                                ACTION_NAVIGATE.hashCode(),
+                                                new Intent(ACTION_NAVIGATE, Uri.parse("geo:0,0?q=gas station"))
+                                                        .setComponent(
+                                                                new ComponentName(this.getApplicationContext(), MessageReplyReceiver.class)),
+                                                0)).build()
+                );
 
         mNotificationManager.notify(conversationId, builder.build());
     }

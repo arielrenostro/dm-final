@@ -17,12 +17,17 @@
 package com.furb.carmonitorfinal.services;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 
 import androidx.core.app.RemoteInput;
+
+import com.furb.carmonitorfinal.R;
+import com.google.android.libraries.car.app.CarContext;
 
 /**
  * A receiver that gets called when a reply is sent to a given conversationId
@@ -36,6 +41,13 @@ public class MessageReplyReceiver extends BroadcastReceiver {
         if (FuelNotificationService.REPLY_ACTION.equals(intent.getAction())) {
             int conversationId = intent.getIntExtra(FuelNotificationService.CONVERSATION_ID, -1);
             CharSequence reply = getMessageText(intent);
+
+            String intentAction = intent.getAction();
+            CarContext.startCarApp(
+                    intent,
+                    new Intent(Intent.ACTION_VIEW)
+                            .setComponent(new ComponentName(context, CarService.class))
+                            .setData(Uri.fromParts("carservice", "reply/message", intentAction)));
             Log.d(TAG, "Got reply (" + reply + ") for ConversationId " + conversationId);
         }
     }

@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="com.google.android.libraries.car.app.NAVIGATION_TEMPLATES"/>
+    <uses-permission android:name="com.google.android.libraries.car.app.ACCESS_SURFACE"/>
+
 
     <application
         android:allowBackup="true"
@@ -25,6 +28,9 @@
         <receiver android:name=".services.MessageReplyReceiver">
             <intent-filter>
                 <action android:name="com.furb.carmonitorfinal.ACTION_MESSAGE_REPLY" />
+                <data
+                    android:host="reply/message"
+                    android:scheme="carservice" />
             </intent-filter>
         </receiver>
 
@@ -33,6 +39,15 @@
             android:enabled="true"
             android:exported="false" />
         <service android:name=".services.OBD2Service" />
+
+        <service
+            android:name=".services.CarService"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="com.google.android.car.action.CAR_APP" android:category="com.google.android.car.category.NAVIGATION"/>
+            </intent-filter>
+        </service>
 
         <meta-data
             android:name="com.google.android.gms.car.application"

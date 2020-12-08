@@ -10,4 +10,5 @@
 
     <string name="channel_name">canalbolado</string>
     <string name="channel_description">Canal bolado</string>
+    <string name="car_notification_message">Procurar posto mais próximo</string>
 </resources>
