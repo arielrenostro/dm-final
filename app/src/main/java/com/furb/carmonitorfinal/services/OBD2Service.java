@@ -9,10 +9,13 @@ import android.os.IBinder;
 
 import androidx.annotation.Nullable;
 
+import com.google.android.gms.common.util.Hex;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -21,7 +24,7 @@ public class OBD2Service extends Service {
     private static final byte[] CMD_NEW_LINE = "\r".getBytes();
 
     private static final byte[] CMD_RESET = "AT Z".getBytes();
-    private static final long CMD_RESET_DELAY = 500;
+    private static final long CMD_RESET_DELAY = 2500;
 
     private static final byte[] CMD_RPM = "01 0C".getBytes();
     private static final long CMD_RPM_DELAY = 500;
@@ -50,7 +53,6 @@ public class OBD2Service extends Service {
         this.is = this.socket.getInputStream();
         this.os = this.socket.getOutputStream();
 
-        this.start();
         this.executor.submit(this::run);
     }
 
@@ -61,10 +63,30 @@ public class OBD2Service extends Service {
     }
 
     private void start() throws IOException {
-        send(CMD_RESET, CMD_RESET_DELAY);
+        byte[] received = send(CMD_RESET, CMD_RESET_DELAY);
+        StringBuilder sb = new StringBuilder(new String(received));
+        while (sb.indexOf("ELM") == -1) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(this.is.available());
+            byte b;
+            char c;
+            while (((b = (byte) this.is.read()) > -1)) {
+                c = (char) b;
+                if (c == '>') {
+                    break;
+                }
+                baos.write(b);
+            }
+            sb.append(new String(baos.toByteArray()));
+        }
     }
 
     public void run() {
+        try {
+            this.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         long start;
 
         while (true) {
@@ -72,20 +94,26 @@ public class OBD2Service extends Service {
             try {
                 // ignore first two bytes [41 0C] of the response((A*256)+B)/4
                 byte[] rpm = send(CMD_RPM, CMD_RPM_DELAY);
-                Intent rpmIntent = new Intent("com.furb.carmonitorfinal.RPM");
-                rpmIntent.putExtra("rpm", (rpm[2] * 256 + rpm[3]) / 4);
-                sendBroadcast(rpmIntent);
+                if (rpm != null) {
+                    Intent rpmIntent = new Intent("com.furb.carmonitorfinal.RPM");
+                    rpmIntent.putExtra("rpm", (rpm[2] * 256 + rpm[3]) / 4);
+                    sendBroadcast(rpmIntent);
+                }
 
                 // ignore first two bytes [hh hh] of the response
                 byte[] fuelLevel = send(CMD_FUEL_LEVEL, CMD_FUEL_LEVEL_DELAY);
-                Intent fuelLevelIntent = new Intent("com.furb.carmonitorfinal.FUEL_LEVEL");
-                fuelLevelIntent.putExtra("level", 100.0f * fuelLevel[2] / 255.0f);
-                sendBroadcast(fuelLevelIntent);
+                if (fuelLevel != null) {
+                    Intent fuelLevelIntent = new Intent("com.furb.carmonitorfinal.FUEL_LEVEL");
+                    fuelLevelIntent.putExtra("level", (100.0f / 255.0f) * fuelLevel[2]);
+                    sendBroadcast(fuelLevelIntent);
+                }
 
                 byte[] speed = send(CMD_SPEED, CMD_SPEED_DELAY);
-                Intent speedIntent = new Intent("com.furb.carmonitorfinal.SPEED");
-                speedIntent.putExtra("speed", (int) speed[2]);
-                sendBroadcast(speedIntent);
+                if (speed != null) {
+                    Intent speedIntent = new Intent("com.furb.carmonitorfinal.SPEED");
+                    speedIntent.putExtra("speed", (int) speed[2]);
+                    sendBroadcast(speedIntent);
+                }
 
                 delay(LOOP_DELAY - (System.currentTimeMillis() - start));
             } catch (Exception e) {
@@ -110,6 +138,14 @@ public class OBD2Service extends Service {
                 break;
             }
             baos.write(b);
+        }
+        String result = new String(baos.toByteArray());
+        String[] split = result.split("\r");
+        if (split.length > 1) {
+            if (Objects.equals(split[1].trim(), "NO DATA")) {
+                return null;
+            }
+            return Hex.stringToBytes(split[1].replaceAll("\\s", "").trim());
         }
         return baos.toByteArray();
     }
